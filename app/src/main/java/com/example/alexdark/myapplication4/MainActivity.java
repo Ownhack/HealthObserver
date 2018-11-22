@@ -170,10 +170,10 @@ public class MainActivity extends AppCompatActivity implements
 
         float runSpeedMps = 10;
         // Create a data set of the running speeds to include in the session.
-        DataSet runningDataSet = DataSet.create(runningDataSource);
+            DataSet runningDataSet = DataSet.create(runningDataSource);
         runningDataSet.add(
                 runningDataSet.createDataPoint()
-                        .setTimeInterval(startTime, startTime, TimeUnit.MILLISECONDS)
+                        .setTimeInterval(startTime, endTime, TimeUnit.MILLISECONDS)
                         .setFloatValues(runSpeedMps)
         );
         Fitness.HistoryApi.insertData(client,runningDataSet);

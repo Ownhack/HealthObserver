@@ -32,7 +32,7 @@ public class NetworkManager {
     public NetworkManager() {
         super();
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.43.123:3000")
+                .baseUrl("http://192.168.20.1:5055")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -50,6 +50,7 @@ public class NetworkManager {
             items.addAll(StepParser.parseSteps(dataSet));
         }
 
+        createStep(new SimpleItem(1.0f, 5.0f));
         for (SimpleItem step : items) {
             createStep(step);
         }
