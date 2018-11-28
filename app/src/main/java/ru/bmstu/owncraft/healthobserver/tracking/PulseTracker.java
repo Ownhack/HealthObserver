@@ -71,7 +71,21 @@ public class PulseTracker implements Tracker {
 
     @Override
     public String getData() {
-        return "";
+        StringBuilder builder = new StringBuilder();
+
+        for (Pulse pulse : pulses) {
+            builder.append("---------------\n");
+
+            builder.append(" start time: ").append(pulse.startTime).append('\n');
+            builder.append("   end time: ").append(pulse.endTime).append('\n');
+            builder.append("average bpm: ").append(pulse.average_bpm).append('\n');
+            builder.append("    min bpm: ").append(pulse.min_bpm).append('\n');
+            builder.append("    max bpm: ").append(pulse.max_bpm).append('\n');
+
+            builder.append("---------------\n\n");
+        }
+
+        return builder.toString();
     }
 
     @Override
