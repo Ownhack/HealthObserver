@@ -1,5 +1,6 @@
 package ru.bmstu.owncraft.healthobserver;
 
+
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -9,39 +10,63 @@ import android.view.View;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.fitness.data.DataSet;
 
-public class FitnessConnectionsManager implements
-        GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener {
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
-    private View view;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.http.Body;
+import retrofit2.http.POST;
+import ru.bmstu.owncraft.healthobserver.data.Pulse;
+import ru.bmstu.owncraft.healthobserver.tracking.Tracker;
 
-    FitnessConnectionsManager(View view) {
-        this.view = view;
+public class FitnessConnectionsManager implements Serializable {
+
+    public interface APICallback {
+        Call<Void> sendData();
     }
 
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        Log.i("History API", "onConnected");
+    static private String baseUrl;
+    static private Retrofit retrofit;
 
-        // Connection success
-        Snackbar.make(view, "Connection succeeded", Snackbar.LENGTH_LONG)
-                .setAction("ConnectionSuccess", null).show();
+    static public void initialize(String serverURL) {
+        baseUrl = serverURL;
+        retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
     }
 
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.i("HistoryAPI", "onConnectionSuspended");
-
-        Snackbar.make(view, "Connection suspended", Snackbar.LENGTH_LONG)
-                .setAction("ConnectionSuspended", null).show();
+    public static Retrofit getRetrofit() {
+        return retrofit;
     }
 
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Log.e("HistoryAPI", "onConnectionFailed");
+    static public <API> API getApiInstance(Class<API> apiClass) {
+        return retrofit.create(apiClass);
+    }
 
-        Snackbar.make(view, "Connection failed", Snackbar.LENGTH_LONG)
-                .setAction("ConnectionFailed", null).show();
+    static public void sendData(APICallback api) {
+        Log.i("FitnessConnectionsManager", "Sending data begin");
+
+        Call<Void> fitnessCall = api.sendData();
+        fitnessCall.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(@NonNull Call<Void> call, @NonNull Response<Void> response) {
+                Log.i("FitnessConnectionsManager", "Success!");
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<Void> call, @NonNull Throwable t) {
+                Log.e("FitnessConnectionsManager", "Failure!");
+            }
+        });
+
+        Log.i("FitnessConnectionsManager", "Sending data done");
     }
 }

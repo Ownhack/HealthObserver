@@ -2,22 +2,66 @@ package ru.bmstu.owncraft.healthobserver.tracking;
 
 import android.util.Log;
 
+import com.google.android.gms.fitness.data.DataPoint;
 import com.google.android.gms.fitness.data.DataSet;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import retrofit2.Call;
+import retrofit2.http.Body;
+import retrofit2.http.POST;
+import ru.bmstu.owncraft.healthobserver.FitnessConnectionsManager;
 import ru.bmstu.owncraft.healthobserver.data.Pulse;
 
 public class PulseTracker implements Tracker {
+
+    public interface API {
+        @POST("/pulse")
+        Call<Void> sendData(@Body Pulse pule);
+    }
+
+    private List<Pulse> pulses = new ArrayList<>();
+
     @Override
     public void parseDataSet(DataSet dataSet) {
+        Log.e("PulseTracker", "parseDataSet() begin");
+
+        for(DataPoint dataPoint : dataSet.getDataPoints()) {
+            Pulse pulse = new Pulse();
+
+            pulse.startTime   = dataPoint.getStartTime(TimeUnit.MILLISECONDS);
+            pulse.endTime     = dataPoint.getEndTime(TimeUnit.MILLISECONDS);
+            pulse.average_bpm = dataPoint.getValue(dataPoint.getDataType().getFields().get(0)).asFloat();
+            pulse.max_bpm     = dataPoint.getValue(dataPoint.getDataType().getFields().get(1)).asFloat();
+            pulse.min_bpm     = dataPoint.getValue(dataPoint.getDataType().getFields().get(2)).asFloat();
+
+            pulses.add(pulse);
+        }
+
+        Log.e("PulseTracker", "parseDataSet() end");
 
     }
 
     @Override
     public void update() {
-        Log.e("PulseTracker", "update()");
+        Log.i("PulseTracker", "update() begin");
 
+        Log.i("PulseTracker", "getting api");
+        final API api = FitnessConnectionsManager.getApiInstance(API.class);
+
+        for (final Pulse pulse : pulses) {
+            FitnessConnectionsManager.sendData(new FitnessConnectionsManager.APICallback() {
+                @Override
+                public Call<Void> sendData() {
+                    return api.sendData(pulse);
+                }
+            });
+        }
+
+        Log.i("PulseTracker", "update() end");
     }
 
     @Override
@@ -28,5 +72,10 @@ public class PulseTracker implements Tracker {
     @Override
     public String getData() {
         return "";
+    }
+
+    @Override
+    public Class<?> getAPI() {
+        return API.class;
     }
 }

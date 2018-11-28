@@ -68,9 +68,9 @@ public class HealthBoardDetailActivity extends AppCompatActivity {
         //
         if (savedInstanceState == null) {
             tracker = (Tracker) getIntent().getSerializableExtra(Tracker.TRAKCER_ID);
-
             Bundle arguments = new Bundle();
             arguments.putSerializable(Tracker.TRAKCER_ID, tracker);
+
 
 
             HealthBoardDetailFragment fragment = new HealthBoardDetailFragment();

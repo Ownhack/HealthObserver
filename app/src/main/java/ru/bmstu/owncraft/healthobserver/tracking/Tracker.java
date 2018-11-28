@@ -1,15 +1,16 @@
 package ru.bmstu.owncraft.healthobserver.tracking;
 
-import android.support.v7.widget.RecyclerView;
-
 import com.google.android.gms.fitness.data.DataSet;
 
 import java.io.Serializable;
-import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.http.Body;
+import ru.bmstu.owncraft.healthobserver.FitnessConnectionsManager;
 
 public interface Tracker extends Serializable {
 
-    public static final String TRAKCER_ID = "HealthObserverTrackerID";
+    String TRAKCER_ID = "HealthObserverTrackerID";
 
     void parseDataSet(DataSet dataSet);
 
@@ -18,4 +19,6 @@ public interface Tracker extends Serializable {
     String getTitle();
 
     String getData();
+
+    Class<?> getAPI();
 }

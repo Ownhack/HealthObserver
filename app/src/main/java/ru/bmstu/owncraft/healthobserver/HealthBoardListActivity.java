@@ -2,8 +2,10 @@ package ru.bmstu.owncraft.healthobserver;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
@@ -16,16 +18,28 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.fitness.Fitness;
+import com.google.android.gms.fitness.data.Bucket;
+import com.google.android.gms.fitness.data.DataSet;
+import com.google.android.gms.fitness.data.DataType;
+import com.google.android.gms.fitness.request.DataReadRequest;
+import com.google.android.gms.fitness.result.DataReadResult;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import ru.bmstu.owncraft.healthobserver.tracking.PulseTracker;
 import ru.bmstu.owncraft.healthobserver.tracking.Tracker;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * An activity representing a list of HealthBoards. This activity
@@ -35,10 +49,35 @@ import ru.bmstu.owncraft.healthobserver.tracking.Tracker;
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-public class HealthBoardListActivity extends AppCompatActivity {
+public class HealthBoardListActivity extends AppCompatActivity implements
+        GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.OnConnectionFailedListener {
+
+    private class LastWeekPulseLoader extends AsyncTask<Void, Void, Void> {
+
+        private GoogleApiClient client;
+        private Tracker tracker;
+        private List<DataSet> dataSets = null;
+
+        public LastWeekPulseLoader(GoogleApiClient client, Tracker tracker) {
+            this.client = client;
+            this.tracker = tracker;
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            dataSets = loadLastWeekData(client, DataType.TYPE_HEART_RATE_BPM, DataType.AGGREGATE_HEART_RATE_SUMMARY);
+
+            for (DataSet dataSet : dataSets) {
+                tracker.parseDataSet(dataSet);
+            }
+
+            return null;
+        }
+    }
 
     private GoogleApiClient           googleApiClient;
-    private FitnessConnectionsManager fitnessConnectionsManager;
+    private String serverURL = "http://192.168.20.1:5055";
 
     private View recyclerView;
 
@@ -47,6 +86,8 @@ public class HealthBoardListActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        FitnessConnectionsManager.initialize(serverURL);
 
         setupTrackers();
 
@@ -63,15 +104,6 @@ public class HealthBoardListActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
         toolbar.setTitle(getTitle());
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-
         recyclerView = findViewById(R.id.healthboard_list);
         assert recyclerView != null;
         setupRecyclerView((RecyclerView) recyclerView);
@@ -84,15 +116,13 @@ public class HealthBoardListActivity extends AppCompatActivity {
     }
 
     private void setupGoogleAPI() {
-        fitnessConnectionsManager = new FitnessConnectionsManager(recyclerView);
-
         googleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Fitness.HISTORY_API)
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ_WRITE))
                 .addScope(new Scope(Scopes.FITNESS_BODY_READ_WRITE))
                 .addScope(new Scope(Scopes.FITNESS_NUTRITION_READ))
-                .addConnectionCallbacks(fitnessConnectionsManager)
-                .enableAutoManage(this, 0, fitnessConnectionsManager)
+                .addConnectionCallbacks(this)
+                .enableAutoManage(this, 0, this)
                 .build();
     }
 
@@ -100,6 +130,67 @@ public class HealthBoardListActivity extends AppCompatActivity {
         trackers = new ArrayList<>();
 
         trackers.add(new PulseTracker());
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        Snackbar.make(recyclerView, "Connection succeeded", Snackbar.LENGTH_LONG)
+                .setAction("ConnectionOK", null).show();
+
+        for(Tracker tracker : trackers) {
+            new LastWeekPulseLoader(googleApiClient, tracker).execute();
+        }
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Snackbar.make(recyclerView, "Connection suspended", Snackbar.LENGTH_LONG)
+                .setAction("ConnectionSUSP", null).show();
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Snackbar.make(recyclerView, "Connection failed", Snackbar.LENGTH_LONG)
+                .setAction("ConnectionFAIL", null).show();
+    }
+
+    private ArrayList<DataSet> loadLastWeekData(GoogleApiClient client, DataType first_type, DataType second_type) {
+        Calendar cal = Calendar.getInstance();
+        Date now = new Date();
+        cal.setTime(now);
+        long endTime = cal.getTimeInMillis();
+        cal.add(Calendar.WEEK_OF_YEAR, -1);
+        long startTime = cal.getTimeInMillis();
+
+        ArrayList<DataSet> sets = new ArrayList<DataSet>();
+
+        java.text.DateFormat dateFormat = DateFormat.getDateInstance();
+        Log.e("History", "Range Start: " + dateFormat.format(startTime));
+        Log.e("History", "Range End: " + dateFormat.format(endTime));
+
+        //Check how many steps were walked and recorded in the last 7 days
+        DataReadRequest readRequest = new DataReadRequest.Builder()
+                .aggregate(first_type, second_type)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime, endTime, MILLISECONDS)
+                .build();
+
+        DataReadResult dataReadResult = Fitness.HistoryApi.readData(client, readRequest).await(1, TimeUnit.MINUTES);
+
+        //Used for aggregated data
+        if (dataReadResult.getBuckets().size() > 0) {
+            Log.e("History", "Number of buckets: " + dataReadResult.getBuckets().size());
+            for (Bucket bucket : dataReadResult.getBuckets()) {
+                List<DataSet> dataSets = bucket.getDataSets();
+                sets.addAll(dataSets);
+            }
+        }
+        //Used for non-aggregated data
+        else if (dataReadResult.getDataSets().size() > 0) {
+            Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
+            sets.addAll(dataReadResult.getDataSets());
+        }
+        return sets;
     }
 
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
