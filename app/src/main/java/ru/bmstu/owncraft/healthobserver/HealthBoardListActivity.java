@@ -9,6 +9,7 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,9 +21,11 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.fitness.Fitness;
 
-import ru.bmstu.owncraft.healthobserver.dummy.DummyContent;
-
+import java.util.ArrayList;
 import java.util.List;
+
+import ru.bmstu.owncraft.healthobserver.tracking.PulseTracker;
+import ru.bmstu.owncraft.healthobserver.tracking.Tracker;
 
 /**
  * An activity representing a list of HealthBoards. This activity
@@ -39,9 +42,13 @@ public class HealthBoardListActivity extends AppCompatActivity {
 
     private View recyclerView;
 
+    private List<Tracker> trackers;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setupTrackers();
 
         setupUI();
 
@@ -89,28 +96,23 @@ public class HealthBoardListActivity extends AppCompatActivity {
                 .build();
     }
 
+    private void setupTrackers() {
+        trackers = new ArrayList<>();
+
+        trackers.add(new PulseTracker());
+    }
+
     private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
-        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(DummyContent.ITEMS));
+        recyclerView.setAdapter(new SimpleItemRecyclerViewAdapter(trackers));
     }
 
     public static class SimpleItemRecyclerViewAdapter
             extends RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder> {
 
-        private final List<DummyContent.DummyItem> mValues;
-        private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                DummyContent.DummyItem item = (DummyContent.DummyItem) view.getTag();
-                Context context = view.getContext();
-                Intent intent = new Intent(context, HealthBoardDetailActivity.class);
-                intent.putExtra(HealthBoardDetailFragment.ARG_ITEM_ID, item.id);
+        private List<Tracker> trackers;
 
-                context.startActivity(intent);
-            }
-        };
-
-        SimpleItemRecyclerViewAdapter(List<DummyContent.DummyItem> items) {
-            mValues = items;
+        SimpleItemRecyclerViewAdapter(List<Tracker> trackers) {
+            this.trackers = trackers;
         }
 
         @NonNull
@@ -123,26 +125,40 @@ public class HealthBoardListActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
-            holder.mIdView.setText(mValues.get(position).id);
-            holder.mContentView.setText(mValues.get(position).content);
+            Log.e("MY:", Integer.toString(position));
 
-            holder.itemView.setTag(mValues.get(position));
-            holder.itemView.setOnClickListener(mOnClickListener);
+            if(position <= getItemCount()) {
+                holder.mIdView.setText(trackers.get(position).getTitle());
+
+                final int final_position = position;
+
+                holder.itemView.setTag(trackers.get(position));
+                holder.itemView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Context context = view.getContext();
+                        Intent intent = new Intent(context, HealthBoardDetailActivity.class);
+                        intent.putExtra(Tracker.TRAKCER_ID, trackers.get(final_position));
+
+                        context.startActivity(intent);
+                    }
+                });
+            }
         }
 
         @Override
         public int getItemCount() {
-            return mValues.size();
+            return trackers.size();
         }
 
         class ViewHolder extends RecyclerView.ViewHolder {
             final TextView mIdView;
-            final TextView mContentView;
+//            final TextView mContentView;
 
             ViewHolder(View view) {
                 super(view);
                 mIdView      = view.findViewById(R.id.id_text);
-                mContentView = view.findViewById(R.id.content);
+//                mContentView = view.findViewById(R.id.content);
             }
         }
     }

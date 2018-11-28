@@ -4,11 +4,14 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
-import android.support.v7.widget.Toolbar;
-import android.view.View;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
+import android.view.View;
+
+import ru.bmstu.owncraft.healthobserver.fragment.HealthBoardDetailFragment;
+import ru.bmstu.owncraft.healthobserver.tracking.Tracker;
 
 /**
  * An activity representing a single HealthBoard detail screen. This
@@ -17,6 +20,12 @@ import android.view.MenuItem;
  * in a {@link HealthBoardListActivity}.
  */
 public class HealthBoardDetailActivity extends AppCompatActivity {
+
+    private Tracker tracker;
+
+    HealthBoardDetailActivity() {
+        tracker = null;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,8 +38,16 @@ public class HealthBoardDetailActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Sync data", Snackbar.LENGTH_LONG)
-                        .setAction("SyncData", null).show();
+
+                if(tracker != null) {
+                    Snackbar.make(view, "Syncing data", Snackbar.LENGTH_LONG)
+                            .setAction("SyncingData", null).show();
+
+                    tracker.update();
+
+                    Snackbar.make(view, "Syncing done", Snackbar.LENGTH_LONG)
+                            .setAction("SyncingDataDone", null).show();
+                }
             }
         });
 
@@ -50,13 +67,15 @@ public class HealthBoardDetailActivity extends AppCompatActivity {
         // http://developer.android.com/guide/components/fragments.html
         //
         if (savedInstanceState == null) {
-            // Create the detail fragment and add it to the activity
-            // using a fragment transaction.
+            tracker = (Tracker) getIntent().getSerializableExtra(Tracker.TRAKCER_ID);
+
             Bundle arguments = new Bundle();
-            arguments.putString(HealthBoardDetailFragment.ARG_ITEM_ID,
-                    getIntent().getStringExtra(HealthBoardDetailFragment.ARG_ITEM_ID));
+            arguments.putSerializable(Tracker.TRAKCER_ID, tracker);
+
+
             HealthBoardDetailFragment fragment = new HealthBoardDetailFragment();
             fragment.setArguments(arguments);
+
             getSupportFragmentManager().beginTransaction()
                     .add(R.id.healthboard_detail_container, fragment)
                     .commit();
